@@ -4,7 +4,7 @@ import Foundation
 final class HotkeyManager {
     var onTrigger: (() -> Void)?
 
-    private var hotKeyRef: EventHotKeyRef?
+    private var hotKeyRefs: [EventHotKeyRef] = []
     private var eventHandlerRef: EventHandlerRef?
 
     init() {
@@ -12,9 +12,10 @@ final class HotkeyManager {
     }
 
     deinit {
-        if let hotKeyRef {
+        for hotKeyRef in hotKeyRefs {
             UnregisterEventHotKey(hotKeyRef)
         }
+        hotKeyRefs.removeAll()
 
         if let eventHandlerRef {
             RemoveEventHandler(eventHandlerRef)
@@ -22,25 +23,38 @@ final class HotkeyManager {
     }
 
     func registerDefaultHotkey() {
-        register(keyCode: UInt32(kVK_ANSI_V), modifiers: UInt32(cmdKey | shiftKey))
+        // Accept both plain F12 and fn+F12 so behavior is consistent across keyboard settings.
+        register(
+            bindings: [
+                (id: 1, keyCode: UInt32(kVK_F12), modifiers: 0),
+                (id: 2, keyCode: UInt32(kVK_F12), modifiers: UInt32(kEventKeyModifierFnMask))
+            ]
+        )
     }
 
-    private func register(keyCode: UInt32, modifiers: UInt32) {
-        if let hotKeyRef {
+    private func register(bindings: [(id: UInt32, keyCode: UInt32, modifiers: UInt32)]) {
+        for hotKeyRef in hotKeyRefs {
             UnregisterEventHotKey(hotKeyRef)
-            self.hotKeyRef = nil
         }
+        hotKeyRefs.removeAll()
 
-        let hotKeyID = EventHotKeyID(signature: HotkeyManager.signature, id: 1)
+        for binding in bindings {
+            var hotKeyRef: EventHotKeyRef?
+            let hotKeyID = EventHotKeyID(signature: HotkeyManager.signature, id: binding.id)
 
-        RegisterEventHotKey(
-            keyCode,
-            modifiers,
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &hotKeyRef
-        )
+            RegisterEventHotKey(
+                binding.keyCode,
+                binding.modifiers,
+                hotKeyID,
+                GetApplicationEventTarget(),
+                0,
+                &hotKeyRef
+            )
+
+            if let hotKeyRef {
+                hotKeyRefs.append(hotKeyRef)
+            }
+        }
     }
 
     private func installEventHandler() {
@@ -71,7 +85,7 @@ final class HotkeyManager {
 
                 guard status == noErr,
                       hotKeyID.signature == HotkeyManager.signature,
-                      hotKeyID.id == 1 else {
+                      (hotKeyID.id == 1 || hotKeyID.id == 2) else {
                     return noErr
                 }
 

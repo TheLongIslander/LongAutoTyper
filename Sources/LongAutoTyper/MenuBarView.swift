@@ -7,16 +7,33 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button("Type Clipboard (Cmd+Shift+V)") {
+            Button("Type Clipboard (F12 / fn+F12)") {
                 Task {
-                    await appModel.startClipboardTyping(source: "Hotkey")
+                    await appModel.startClipboardTyping(
+                        source: "Hotkey",
+                        countdownOverride: 0,
+                        waitForFunctionKeyRelease: true
+                    )
                 }
             }
 
             Button("Open Window") {
-                openWindow(id: "main")
-                NSApplication.shared.activate(ignoringOtherApps: true)
+                appModel.openMainWindow {
+                    openWindow(id: "main")
+                }
             }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Delay")
+                    Spacer()
+                    Text(appModel.keyDelay.formatted(.number.precision(.fractionLength(2))) + "s")
+                        .foregroundStyle(.secondary)
+                }
+
+                Slider(value: $appModel.keyDelay, in: 0...1, step: 0.01)
+            }
+            .padding(.top, 2)
 
             Button("Stop Typing") {
                 appModel.stopTyping()

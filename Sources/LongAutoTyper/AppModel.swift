@@ -1,3 +1,5 @@
+import AppKit
+import CoreGraphics
 import Foundation
 
 @MainActor
@@ -28,6 +30,7 @@ final class AppModel: ObservableObject {
     private let permissionManager = PermissionManager()
     private let typingEngine = TypingEngine()
     private let hotkeyManager = HotkeyManager()
+    private weak var mainWindow: NSWindow?
 
     private enum Keys {
         static let manualText = "manualText"
@@ -38,21 +41,29 @@ final class AppModel: ObservableObject {
     init() {
         manualText = defaults.string(forKey: Keys.manualText) ?? ""
 
-        let storedDelay = defaults.double(forKey: Keys.keyDelay)
-        keyDelay = storedDelay == 0 ? 0.15 : max(0, min(storedDelay, 2))
+        let storedDelay = defaults.object(forKey: Keys.keyDelay) as? Double
+        keyDelay = max(0, min(storedDelay ?? 0.02, 2))
 
         let storedCountdown = defaults.object(forKey: Keys.countdownSeconds) as? Int
         countdownSeconds = max(0, min(storedCountdown ?? 5, 20))
 
         hotkeyManager.onTrigger = { [weak self] in
             Task { @MainActor [weak self] in
-                await self?.startClipboardTyping(source: "Hotkey")
+                await self?.startClipboardTyping(
+                    source: "Hotkey",
+                    countdownOverride: 0,
+                    waitForFunctionKeyRelease: true
+                )
             }
         }
         hotkeyManager.registerDefaultHotkey()
     }
 
-    func startClipboardTyping(source: String = "Button") async {
+    func startClipboardTyping(
+        source: String = "Button",
+        countdownOverride: Int? = nil,
+        waitForFunctionKeyRelease: Bool = false
+    ) async {
         guard !isTyping else {
             statusMessage = "Typing is already in progress."
             return
@@ -68,7 +79,20 @@ final class AppModel: ObservableObject {
             return
         }
 
-        startTyping(text: text, source: source)
+        if waitForFunctionKeyRelease {
+            let released = await waitForFunctionKeyReleaseIfNeeded()
+            guard released else {
+                statusMessage = "Release fn key and press hotkey again."
+                return
+            }
+        }
+
+        startTyping(
+            text: text,
+            source: source,
+            countdown: countdownOverride ?? countdownSeconds,
+            initialDelay: 0
+        )
     }
 
     func startManualTyping() async {
@@ -88,7 +112,7 @@ final class AppModel: ObservableObject {
             return
         }
 
-        startTyping(text: manualText, source: "Manual")
+        startTyping(text: manualText, source: "Manual", countdown: countdownSeconds, initialDelay: 0)
     }
 
     func stopTyping() {
@@ -99,7 +123,23 @@ final class AppModel: ObservableObject {
         statusMessage = "Typing stopped."
     }
 
-    private func startTyping(text: String, source: String) {
+    func registerMainWindow(_ window: NSWindow) {
+        mainWindow = window
+    }
+
+    func openMainWindow(openWindowAction: () -> Void) {
+        NSApplication.shared.activate(ignoringOtherApps: true)
+
+        if let mainWindow {
+            mainWindow.makeKeyAndOrderFront(nil)
+            mainWindow.orderFrontRegardless()
+            return
+        }
+
+        openWindowAction()
+    }
+
+    private func startTyping(text: String, source: String, countdown: Int, initialDelay: Double) {
         isTyping = true
         statusMessage = "Preparing \(source.lowercased()) typing..."
 
@@ -107,11 +147,35 @@ final class AppModel: ObservableObject {
             await typingEngine.start(
                 text: text,
                 delayPerCharacter: keyDelay,
-                countdownSeconds: countdownSeconds
+                countdownSeconds: countdown,
+                initialDelaySeconds: initialDelay
             ) { [weak self] update in
                 self?.handleTypingUpdate(update, source: source)
             }
         }
+    }
+
+    private func waitForFunctionKeyReleaseIfNeeded(timeoutSeconds: Double = 2.0) async -> Bool {
+        guard isFunctionModifierDown() else {
+            return true
+        }
+
+        statusMessage = "Waiting for fn key release..."
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+
+        while isFunctionModifierDown() && Date() < deadline {
+            do {
+                try await Task.sleep(for: .milliseconds(20))
+            } catch {
+                return false
+            }
+        }
+
+        return !isFunctionModifierDown()
+    }
+
+    private func isFunctionModifierDown() -> Bool {
+        CGEventSource.flagsState(.combinedSessionState).contains(.maskSecondaryFn)
     }
 
     private func handleTypingUpdate(_ update: TypingUpdate, source: String) {

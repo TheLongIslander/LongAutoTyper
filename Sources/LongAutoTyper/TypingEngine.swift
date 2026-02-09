@@ -16,6 +16,7 @@ actor TypingEngine {
         text: String,
         delayPerCharacter: Double,
         countdownSeconds: Int,
+        initialDelaySeconds: Double = 0,
         onUpdate: @escaping @Sendable @MainActor (TypingUpdate) -> Void
     ) {
         typingTask?.cancel()
@@ -23,6 +24,7 @@ actor TypingEngine {
         typingTask = Task {
             let safeDelay = max(0, delayPerCharacter)
             let safeCountdown = max(0, countdownSeconds)
+            let safeInitialDelay = max(0, initialDelaySeconds)
             let characters = Array(text)
 
             if safeCountdown > 0 {
@@ -44,6 +46,15 @@ actor TypingEngine {
             if Task.isCancelled {
                 await onUpdate(.stopped)
                 return
+            }
+
+            if safeInitialDelay > 0 {
+                do {
+                    try await Task.sleep(for: .seconds(safeInitialDelay))
+                } catch {
+                    await onUpdate(.stopped)
+                    return
+                }
             }
 
             await onUpdate(.started(totalCharacters: characters.count))

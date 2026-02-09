@@ -5,7 +5,7 @@ struct LongAutoTyperApp: App {
     @StateObject private var appModel = AppModel()
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        Window("LongAutoTyper", id: "main") {
             MainWindowView()
                 .environmentObject(appModel)
         }

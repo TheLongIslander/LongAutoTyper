@@ -8,7 +8,7 @@ struct MainWindowView: View {
             Text("LongAutoTyper")
                 .font(.title2.weight(.semibold))
 
-            Text("Global hotkey: Command + Shift + V")
+            Text("Global hotkey: F12 (fn+F12 also supported)")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -62,5 +62,10 @@ struct MainWindowView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(16)
+        .background(
+            WindowAccessor { window in
+                appModel.registerMainWindow(window)
+            }
+        )
     }
 }
