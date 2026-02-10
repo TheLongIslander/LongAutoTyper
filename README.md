@@ -11,7 +11,7 @@ A macOS menu bar app that auto-types text with configurable delay and countdown.
 - Configurable start countdown (default `5s`).
 - Hotkey path starts immediately (no countdown).
 - Auto-pauses typing when you switch to another app, and resumes when focus returns to the original target app.
-- Pressing `Delete`/`Backspace` while typing also stops the current run.
+- Pressing `Delete`/`Backspace` while typing can also stop the current run (requires Input Monitoring permission).
 - Menu bar controls to open window, start clipboard typing, stop typing, and quit.
 - Background-friendly behavior via menu bar extra.
 
@@ -27,6 +27,60 @@ swift run
 ```
 
 The app will launch with a window and a menu bar icon.
+
+## Build / Package Commands
+
+### 1) Build only the app (`.app`)
+
+Use this when you just want a double-clickable app for yourself.
+
+```bash
+./scripts/build_app_bundle.sh --version 0.1.0
+```
+
+Output:
+
+- `dist/LongAutoTyper.app`
+
+### 2) Build release artifacts for sharing (`.app` + `.dmg` + `.pkg`)
+
+Use this when you want files to upload/share with other users.
+
+```bash
+./scripts/package_macos.sh --version 0.1.0
+```
+
+Outputs:
+
+- `dist/LongAutoTyper.app`
+- `dist/LongAutoTyper.dmg`
+- `dist/LongAutoTyper.pkg`
+
+By default this is a true universal build (`x86_64` + `arm64`).
+Use `--arch` flags only if you want a single-architecture artifact.
+
+The generated `.pkg` is configured as non-relocatable and installs to:
+
+- `/Applications/LongAutoTyper.app`
+
+After installing the `.pkg`, you should find it in Finder at:
+
+- `Applications/LongAutoTyper.app`
+
+### Quick decision
+
+- `build_app_bundle.sh`: app only
+- `package_macos.sh`: app + installer/distribution files
+
+### Useful flags (both scripts)
+
+- `--configuration debug|release`
+- `--arch x86_64` or `--arch arm64` (repeatable; default builds both for universal)
+
+Extra flags for `package_macos.sh` only:
+
+- `--skip-dmg`
+- `--skip-pkg`
 
 ## App Icon
 
@@ -47,8 +101,62 @@ To emit keystrokes into other apps, macOS requires **Accessibility** permission:
 
 If permission is missing, the app prompts when typing is requested.
 
+For global `Delete`/`Backspace` stop detection, macOS may also require **Input Monitoring** permission for the app.
+
 ## Behavior Notes
 
 - Hotkey path always types from clipboard.
 - Manual text typing is button-triggered from the app window.
 - `Stop` cancels countdown/typing immediately.
+
+## Distribution Notes
+
+- Unsigned builds may show Gatekeeper warnings on other machines.
+
+### Running Unsigned Builds
+
+If macOS blocks launch with "cannot be opened because Apple cannot check it for malicious software":
+
+1. Try right-clicking the app and choose `Open`, then confirm.
+2. If still blocked, open `System Settings` -> `Privacy & Security`.
+3. In the Security section, click `Open Anyway` for `LongAutoTyper`.
+4. Launch the app again and confirm `Open`.
+
+### If packaging fails with `Permission denied` in `dist/LongAutoTyper.app`
+
+This usually means the existing app bundle in `dist/` is owned by `root`.
+
+Run one of:
+
+```bash
+sudo chown -R "$(id -un)":staff dist/LongAutoTyper.app
+```
+
+or
+
+```bash
+sudo rm -rf dist/LongAutoTyper.app
+```
+
+Then run the packaging command again.
+
+### If packaging fails with `pkgbuild` argument errors
+
+If you see either of these:
+
+- `--root must be specified in --analyze mode`
+- `--component-plist can be used only when a --root is specified`
+
+you are likely running an older script copy. Confirm the current script does not use `--component` or `--component-plist`:
+
+```bash
+rg -n "component-plist|--component|--analyze" scripts/package_macos.sh
+```
+
+Expected result: no matches.
+
+Then rerun:
+
+```bash
+./scripts/package_macos.sh --version 0.1.0
+```
