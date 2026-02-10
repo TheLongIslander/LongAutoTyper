@@ -10,7 +10,7 @@ enum IconManager {
         ]
 
         for (name, ext) in candidates {
-            guard let url = Bundle.module.url(forResource: name, withExtension: ext),
+            guard let url = Bundle.main.url(forResource: name, withExtension: ext),
                   let image = NSImage(contentsOf: url) else {
                 continue
             }
