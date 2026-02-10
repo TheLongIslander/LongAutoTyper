@@ -1,8 +1,13 @@
+import AppKit
 import SwiftUI
 
 @main
 struct LongAutoTyperApp: App {
     @StateObject private var appModel = AppModel()
+
+    init() {
+        NSApplication.shared.setActivationPolicy(.regular)
+    }
 
     var body: some Scene {
         Window("LongAutoTyper", id: "main") {

@@ -124,19 +124,23 @@ final class AppModel: ObservableObject {
     }
 
     func registerMainWindow(_ window: NSWindow) {
+        if mainWindow === window {
+            return
+        }
         mainWindow = window
     }
 
     func openMainWindow(openWindowAction: () -> Void) {
-        NSApplication.shared.activate(ignoringOtherApps: true)
-
-        if let mainWindow {
-            mainWindow.makeKeyAndOrderFront(nil)
-            mainWindow.orderFrontRegardless()
+        if mainWindow != nil {
+            focusMainWindow()
             return
         }
 
         openWindowAction()
+
+        Task { @MainActor [weak self] in
+            await self?.focusMainWindowWhenAvailable()
+        }
     }
 
     private func startTyping(text: String, source: String, countdown: Int, initialDelay: Double) {
@@ -176,6 +180,24 @@ final class AppModel: ObservableObject {
 
     private func isFunctionModifierDown() -> Bool {
         CGEventSource.flagsState(.combinedSessionState).contains(.maskSecondaryFn)
+    }
+
+    private func focusMainWindow() {
+        guard let mainWindow else { return }
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        mainWindow.deminiaturize(nil)
+        mainWindow.makeKeyAndOrderFront(nil)
+        mainWindow.orderFrontRegardless()
+    }
+
+    private func focusMainWindowWhenAvailable() async {
+        for _ in 0..<60 {
+            if mainWindow != nil {
+                focusMainWindow()
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
     }
 
     private func handleTypingUpdate(_ update: TypingUpdate, source: String) {
