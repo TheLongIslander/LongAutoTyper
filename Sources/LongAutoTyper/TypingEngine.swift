@@ -1,8 +1,15 @@
 import Foundation
 
+struct TypingFocusState: Sendable {
+    let isFocused: Bool
+    let targetAppName: String?
+}
+
 enum TypingUpdate: Sendable {
     case countdown(Int)
     case started(totalCharacters: Int)
+    case paused(targetAppName: String?)
+    case resumed(targetAppName: String?)
     case progress(typed: Int, total: Int)
     case completed
     case stopped
@@ -17,6 +24,7 @@ actor TypingEngine {
         delayPerCharacter: Double,
         countdownSeconds: Int,
         initialDelaySeconds: Double = 0,
+        focusStateProvider: @escaping @Sendable @MainActor () -> TypingFocusState,
         onUpdate: @escaping @Sendable @MainActor (TypingUpdate) -> Void
     ) {
         typingTask?.cancel()
@@ -57,12 +65,28 @@ actor TypingEngine {
                 }
             }
 
+            let canStartTyping = await waitForFocusIfNeeded(
+                focusStateProvider: focusStateProvider,
+                onUpdate: onUpdate
+            )
+            if !canStartTyping {
+                return
+            }
+
             await onUpdate(.started(totalCharacters: characters.count))
 
             var typed = 0
             for character in characters {
                 if Task.isCancelled {
                     await onUpdate(.stopped)
+                    return
+                }
+
+                let canContinueTyping = await waitForFocusIfNeeded(
+                    focusStateProvider: focusStateProvider,
+                    onUpdate: onUpdate
+                )
+                if !canContinueTyping {
                     return
                 }
 
@@ -92,5 +116,45 @@ actor TypingEngine {
     func stop() {
         typingTask?.cancel()
         typingTask = nil
+    }
+
+    private func waitForFocusIfNeeded(
+        focusStateProvider: @escaping @Sendable @MainActor () -> TypingFocusState,
+        onUpdate: @escaping @Sendable @MainActor (TypingUpdate) -> Void
+    ) async -> Bool {
+        var wasPaused = false
+        var targetAppName: String?
+
+        while true {
+            if Task.isCancelled {
+                await onUpdate(.stopped)
+                return false
+            }
+
+            let focusState = await focusStateProvider()
+            targetAppName = focusState.targetAppName
+
+            if focusState.isFocused {
+                break
+            }
+
+            if !wasPaused {
+                wasPaused = true
+                await onUpdate(.paused(targetAppName: targetAppName))
+            }
+
+            do {
+                try await Task.sleep(for: .milliseconds(120))
+            } catch {
+                await onUpdate(.stopped)
+                return false
+            }
+        }
+
+        if wasPaused {
+            await onUpdate(.resumed(targetAppName: targetAppName))
+        }
+
+        return true
     }
 }

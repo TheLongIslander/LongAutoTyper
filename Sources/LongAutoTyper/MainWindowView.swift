@@ -16,6 +16,10 @@ struct MainWindowView: View {
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.primary)
 
+            Text("Auto-pauses if you switch apps; resumes when you return.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
             GroupBox("Manual Text") {
                 TextEditor(text: $appModel.manualText)
                     .font(.system(.body, design: .monospaced))

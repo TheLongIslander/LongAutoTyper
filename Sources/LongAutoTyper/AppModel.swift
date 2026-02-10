@@ -33,6 +33,8 @@ final class AppModel: ObservableObject {
     private let cancelKeyMonitor = CancelKeyMonitor()
     private weak var mainWindow: NSWindow?
     private var lastProgressStatusUpdate = Date.distantPast
+    private var typingTargetAppIdentifier: String?
+    private var typingTargetAppName: String?
 
     private enum Keys {
         static let manualText = "manualText"
@@ -150,6 +152,7 @@ final class AppModel: ObservableObject {
             await typingEngine.stop()
         }
         cancelKeyMonitor.stop()
+        resetTypingTarget()
         isTyping = false
         statusMessage = "Typing stopped."
     }
@@ -159,6 +162,7 @@ final class AppModel: ObservableObject {
             await typingEngine.stop()
         }
         cancelKeyMonitor.stop()
+        resetTypingTarget()
         isTyping = false
         statusMessage = reason
     }
@@ -184,6 +188,7 @@ final class AppModel: ObservableObject {
     }
 
     private func startTyping(text: String, source: String, countdown: Int, initialDelay: Double) {
+        resetTypingTarget()
         isTyping = true
         let inputMonitoringGranted = permissionManager.requestInputMonitoringIfNeeded()
         let cancelMonitorReady = inputMonitoringGranted && cancelKeyMonitor.start()
@@ -200,7 +205,10 @@ final class AppModel: ObservableObject {
                 text: text,
                 delayPerCharacter: keyDelay,
                 countdownSeconds: countdown,
-                initialDelaySeconds: initialDelay
+                initialDelaySeconds: initialDelay,
+                focusStateProvider: { [weak self] in
+                    self?.focusStateForCurrentRun() ?? TypingFocusState(isFocused: true, targetAppName: nil)
+                }
             ) { [weak self] update in
                 self?.handleTypingUpdate(update, source: source)
             }
@@ -248,6 +256,33 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func resetTypingTarget() {
+        typingTargetAppIdentifier = nil
+        typingTargetAppName = nil
+    }
+
+    private func focusStateForCurrentRun() -> TypingFocusState {
+        guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
+            return TypingFocusState(
+                isFocused: true,
+                targetAppName: typingTargetAppName
+            )
+        }
+
+        let identifier = frontmostApp.bundleIdentifier ?? "pid:\(frontmostApp.processIdentifier)"
+        let name = frontmostApp.localizedName ?? "target app"
+
+        if typingTargetAppIdentifier == nil {
+            typingTargetAppIdentifier = identifier
+            typingTargetAppName = name
+        }
+
+        return TypingFocusState(
+            isFocused: identifier == typingTargetAppIdentifier,
+            targetAppName: typingTargetAppName
+        )
+    }
+
     private func handleTypingUpdate(_ update: TypingUpdate, source: String) {
         switch update {
         case .countdown(let secondsLeft):
@@ -255,6 +290,12 @@ final class AppModel: ObservableObject {
         case .started(let totalCharacters):
             lastProgressStatusUpdate = .distantPast
             statusMessage = "Typing \(totalCharacters) chars... Stop: Ctrl+Opt+Cmd+."
+        case .paused(let targetAppName):
+            let targetName = targetAppName ?? "target app"
+            statusMessage = "Paused (focus changed). Return to \(targetName) to resume."
+        case .resumed(let targetAppName):
+            let targetName = targetAppName ?? "target app"
+            statusMessage = "Resumed in \(targetName). Stop: Ctrl+Opt+Cmd+."
         case .progress(let typed, let total):
             let now = Date()
             if now.timeIntervalSince(lastProgressStatusUpdate) < 0.12 && typed < total {
@@ -264,14 +305,17 @@ final class AppModel: ObservableObject {
             statusMessage = "Typing \(typed)/\(total) (Stop: Ctrl+Opt+Cmd+.)"
         case .completed:
             cancelKeyMonitor.stop()
+            resetTypingTarget()
             isTyping = false
             statusMessage = "Typing finished."
         case .stopped:
             cancelKeyMonitor.stop()
+            resetTypingTarget()
             isTyping = false
             statusMessage = "Typing stopped."
         case .failed(let message):
             cancelKeyMonitor.stop()
+            resetTypingTarget()
             isTyping = false
             statusMessage = "Typing failed: \(message)"
         }

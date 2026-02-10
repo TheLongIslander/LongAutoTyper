@@ -10,7 +10,7 @@ A macOS menu bar app that auto-types text with configurable delay and countdown.
 - Configurable per-character delay (default `0.02s`).
 - Configurable start countdown (default `5s`).
 - Hotkey path starts immediately (no countdown).
-- Pressing the hotkey again while typing stops the current run.
+- Auto-pauses typing when you switch to another app, and resumes when focus returns to the original target app.
 - Pressing `Delete`/`Backspace` while typing also stops the current run.
 - Menu bar controls to open window, start clipboard typing, stop typing, and quit.
 - Background-friendly behavior via menu bar extra.

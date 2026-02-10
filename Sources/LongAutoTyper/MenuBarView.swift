@@ -17,6 +17,10 @@ struct MenuBarView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.primary)
 
+            Text("Auto-pause on app switch")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Button("Open Window") {
                 appModel.openMainWindow {
                     openWindow(id: "main")
