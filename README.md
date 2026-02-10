@@ -5,10 +5,13 @@ A macOS menu bar app that auto-types text with configurable delay and countdown.
 ## V1 Features
 
 - Global hotkey `F12` (and `fn+F12`) to type current clipboard text.
+- Main emergency stop hotkey: `Control + Option + Command + .`.
 - Manual text box in a small window with a `Type Manual Text` button.
 - Configurable per-character delay (default `0.02s`).
 - Configurable start countdown (default `5s`).
 - Hotkey path starts immediately (no countdown).
+- Pressing the hotkey again while typing stops the current run.
+- Pressing `Delete`/`Backspace` while typing also stops the current run.
 - Menu bar controls to open window, start clipboard typing, stop typing, and quit.
 - Background-friendly behavior via menu bar extra.
 

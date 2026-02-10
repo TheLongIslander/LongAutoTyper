@@ -12,6 +12,10 @@ struct MainWindowView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
+            Text("Main stop key: Ctrl + Option + Command + .")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.primary)
+
             GroupBox("Manual Text") {
                 TextEditor(text: $appModel.manualText)
                     .font(.system(.body, design: .monospaced))

@@ -9,13 +9,13 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 8) {
             Button("Type Clipboard (F12 / fn+F12)") {
                 Task {
-                    await appModel.startClipboardTyping(
-                        source: "Hotkey",
-                        countdownOverride: 0,
-                        waitForFunctionKeyRelease: true
-                    )
+                    await appModel.handleHotkeyTrigger()
                 }
             }
+
+            Text("Main stop: Ctrl+Opt+Cmd+.")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.primary)
 
             Button("Open Window") {
                 appModel.openMainWindow {
@@ -38,7 +38,6 @@ struct MenuBarView: View {
             Button("Stop Typing") {
                 appModel.stopTyping()
             }
-            .disabled(!appModel.isTyping)
 
             Divider()
 

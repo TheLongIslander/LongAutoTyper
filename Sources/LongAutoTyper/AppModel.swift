@@ -30,7 +30,9 @@ final class AppModel: ObservableObject {
     private let permissionManager = PermissionManager()
     private let typingEngine = TypingEngine()
     private let hotkeyManager = HotkeyManager()
+    private let cancelKeyMonitor = CancelKeyMonitor()
     private weak var mainWindow: NSWindow?
+    private var lastProgressStatusUpdate = Date.distantPast
 
     private enum Keys {
         static let manualText = "manualText"
@@ -47,16 +49,44 @@ final class AppModel: ObservableObject {
         let storedCountdown = defaults.object(forKey: Keys.countdownSeconds) as? Int
         countdownSeconds = max(0, min(storedCountdown ?? 5, 20))
 
-        hotkeyManager.onTrigger = { [weak self] in
+        hotkeyManager.onStartTrigger = { [weak self] in
             Task { @MainActor [weak self] in
-                await self?.startClipboardTyping(
-                    source: "Hotkey",
-                    countdownOverride: 0,
-                    waitForFunctionKeyRelease: true
-                )
+                await self?.handleHotkeyTrigger()
             }
         }
+
+        hotkeyManager.onStopTrigger = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.emergencyStop(reason: "Typing stopped by emergency hotkey.")
+            }
+        }
+
+        hotkeyManager.onRegistrationWarning = { [weak self] warning in
+            Task { @MainActor [weak self] in
+                self?.statusMessage = warning
+            }
+        }
+
+        cancelKeyMonitor.onDeletePressed = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.emergencyStop(reason: "Typing stopped by delete key.")
+            }
+        }
+
         hotkeyManager.registerDefaultHotkey()
+    }
+
+    func handleHotkeyTrigger() async {
+        if isTyping {
+            statusMessage = "Typing in progress. Stop with Ctrl+Opt+Cmd+."
+            return
+        }
+
+        await startClipboardTyping(
+            source: "Hotkey",
+            countdownOverride: 0,
+            waitForFunctionKeyRelease: true
+        )
     }
 
     func startClipboardTyping(
@@ -119,8 +149,18 @@ final class AppModel: ObservableObject {
         Task {
             await typingEngine.stop()
         }
+        cancelKeyMonitor.stop()
         isTyping = false
         statusMessage = "Typing stopped."
+    }
+
+    private func emergencyStop(reason: String) {
+        Task {
+            await typingEngine.stop()
+        }
+        cancelKeyMonitor.stop()
+        isTyping = false
+        statusMessage = reason
     }
 
     func registerMainWindow(_ window: NSWindow) {
@@ -145,7 +185,15 @@ final class AppModel: ObservableObject {
 
     private func startTyping(text: String, source: String, countdown: Int, initialDelay: Double) {
         isTyping = true
-        statusMessage = "Preparing \(source.lowercased()) typing..."
+        let inputMonitoringGranted = permissionManager.requestInputMonitoringIfNeeded()
+        let cancelMonitorReady = inputMonitoringGranted && cancelKeyMonitor.start()
+        if cancelMonitorReady {
+            statusMessage = "Preparing \(source.lowercased()) typing..."
+        } else if !inputMonitoringGranted {
+            statusMessage = "Preparing \(source.lowercased()) typing... (Enable Input Monitoring for delete-stop)"
+        } else {
+            statusMessage = "Preparing \(source.lowercased()) typing... (Delete stop unavailable)"
+        }
 
         Task {
             await typingEngine.start(
@@ -205,16 +253,25 @@ final class AppModel: ObservableObject {
         case .countdown(let secondsLeft):
             statusMessage = "\(source) typing starts in \(secondsLeft)s..."
         case .started(let totalCharacters):
-            statusMessage = "Typing \(totalCharacters) characters..."
+            lastProgressStatusUpdate = .distantPast
+            statusMessage = "Typing \(totalCharacters) chars... Stop: Ctrl+Opt+Cmd+."
         case .progress(let typed, let total):
-            statusMessage = "Typing... \(typed)/\(total)"
+            let now = Date()
+            if now.timeIntervalSince(lastProgressStatusUpdate) < 0.12 && typed < total {
+                return
+            }
+            lastProgressStatusUpdate = now
+            statusMessage = "Typing \(typed)/\(total) (Stop: Ctrl+Opt+Cmd+.)"
         case .completed:
+            cancelKeyMonitor.stop()
             isTyping = false
             statusMessage = "Typing finished."
         case .stopped:
+            cancelKeyMonitor.stop()
             isTyping = false
             statusMessage = "Typing stopped."
         case .failed(let message):
+            cancelKeyMonitor.stop()
             isTyping = false
             statusMessage = "Typing failed: \(message)"
         }

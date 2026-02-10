@@ -2,7 +2,9 @@ import Carbon.HIToolbox
 import Foundation
 
 final class HotkeyManager {
-    var onTrigger: (() -> Void)?
+    var onStartTrigger: (() -> Void)?
+    var onStopTrigger: (() -> Void)?
+    var onRegistrationWarning: ((String) -> Void)?
 
     private var hotKeyRefs: [EventHotKeyRef] = []
     private var eventHandlerRef: EventHandlerRef?
@@ -23,11 +25,13 @@ final class HotkeyManager {
     }
 
     func registerDefaultHotkey() {
-        // Accept both plain F12 and fn+F12 so behavior is consistent across keyboard settings.
+        // Start: F12 / fn+F12
+        // Primary global stop: Ctrl+Opt+Cmd+.
         register(
             bindings: [
                 (id: 1, keyCode: UInt32(kVK_F12), modifiers: 0),
-                (id: 2, keyCode: UInt32(kVK_F12), modifiers: UInt32(kEventKeyModifierFnMask))
+                (id: 2, keyCode: UInt32(kVK_F12), modifiers: UInt32(kEventKeyModifierFnMask)),
+                (id: 3, keyCode: UInt32(kVK_ANSI_Period), modifiers: UInt32(controlKey | optionKey | cmdKey))
             ]
         )
     }
@@ -42,7 +46,7 @@ final class HotkeyManager {
             var hotKeyRef: EventHotKeyRef?
             let hotKeyID = EventHotKeyID(signature: HotkeyManager.signature, id: binding.id)
 
-            RegisterEventHotKey(
+            let status = RegisterEventHotKey(
                 binding.keyCode,
                 binding.modifiers,
                 hotKeyID,
@@ -51,8 +55,10 @@ final class HotkeyManager {
                 &hotKeyRef
             )
 
-            if let hotKeyRef {
+            if status == noErr, let hotKeyRef {
                 hotKeyRefs.append(hotKeyRef)
+            } else {
+                onRegistrationWarning?("Hotkey registration failed for binding id \(binding.id) (status \(status)).")
             }
         }
     }
@@ -84,13 +90,20 @@ final class HotkeyManager {
                 )
 
                 guard status == noErr,
-                      hotKeyID.signature == HotkeyManager.signature,
-                      (hotKeyID.id == 1 || hotKeyID.id == 2) else {
+                      hotKeyID.signature == HotkeyManager.signature else {
                     return noErr
                 }
 
                 let manager = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
-                manager.onTrigger?()
+
+                switch hotKeyID.id {
+                case 1, 2:
+                    manager.onStartTrigger?()
+                case 3:
+                    manager.onStopTrigger?()
+                default:
+                    break
+                }
                 return noErr
             },
             1,
