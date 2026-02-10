@@ -7,6 +7,7 @@ struct LongAutoTyperApp: App {
 
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
+        IconManager.applyAppIconIfAvailable()
     }
 
     var body: some Scene {

@@ -10,6 +10,11 @@ let package = Package(
         .executable(name: "LongAutoTyper", targets: ["LongAutoTyper"])
     ],
     targets: [
-        .executableTarget(name: "LongAutoTyper")
+        .executableTarget(
+            name: "LongAutoTyper",
+            resources: [
+                .process("Resources")
+            ]
+        )
     ]
 )

@@ -28,6 +28,15 @@ swift run
 
 The app will launch with a window and a menu bar icon.
 
+## App Icon
+
+To use a custom app icon, add one of these files:
+
+- `Sources/LongAutoTyper/Resources/AppIcon.icns` (recommended)
+- `Sources/LongAutoTyper/Resources/AppIcon.png`
+
+Then rebuild and run again.
+
 ## Permissions
 
 To emit keystrokes into other apps, macOS requires **Accessibility** permission:
