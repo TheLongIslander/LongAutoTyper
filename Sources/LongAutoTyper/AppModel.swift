@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import SwiftUI
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -32,9 +33,12 @@ final class AppModel: ObservableObject {
     private let hotkeyManager = HotkeyManager()
     private let cancelKeyMonitor = CancelKeyMonitor()
     private weak var mainWindow: NSWindow?
+    private var windowRetention: NSWindow?
     private var lastProgressStatusUpdate = Date.distantPast
     private var typingTargetAppIdentifier: String?
     private var typingTargetAppName: String?
+    private var isMenuBarPanelOpen = false
+    private var hasStartedCurrentTypingRun = false
 
     private enum Keys {
         static let manualText = "manualText"
@@ -153,6 +157,7 @@ final class AppModel: ObservableObject {
         }
         cancelKeyMonitor.stop()
         resetTypingTarget()
+        hasStartedCurrentTypingRun = false
         isTyping = false
         statusMessage = "Typing stopped."
     }
@@ -163,8 +168,17 @@ final class AppModel: ObservableObject {
         }
         cancelKeyMonitor.stop()
         resetTypingTarget()
+        hasStartedCurrentTypingRun = false
         isTyping = false
         statusMessage = reason
+    }
+
+    func menuBarDidAppear() {
+        isMenuBarPanelOpen = true
+    }
+
+    func menuBarDidDisappear() {
+        isMenuBarPanelOpen = false
     }
 
     func registerMainWindow(_ window: NSWindow) {
@@ -172,23 +186,44 @@ final class AppModel: ObservableObject {
             return
         }
         mainWindow = window
+        windowRetention = window
     }
 
-    func openMainWindow(openWindowAction: () -> Void) {
+    func openMainWindow() {
         if mainWindow != nil {
             focusMainWindow()
             return
         }
 
-        openWindowAction()
+        let window = makeMainWindow()
+        registerMainWindow(window)
+        focusMainWindow()
+    }
 
-        Task { @MainActor [weak self] in
-            await self?.focusMainWindowWhenAvailable()
-        }
+    private func makeMainWindow() -> NSWindow {
+        let host = NSHostingController(
+            rootView: MainWindowView()
+                .environmentObject(self)
+        )
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 440),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "LongAutoTyper"
+        window.contentViewController = host
+        window.setContentSize(NSSize(width: 520, height: 440))
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.setFrameAutosaveName("LongAutoTyperMainWindow")
+        return window
     }
 
     private func startTyping(text: String, source: String, countdown: Int, initialDelay: Double) {
         resetTypingTarget()
+        hasStartedCurrentTypingRun = false
         isTyping = true
         let inputMonitoringGranted = permissionManager.requestInputMonitoringIfNeeded()
         let cancelMonitorReady = inputMonitoringGranted && cancelKeyMonitor.start()
@@ -246,22 +281,20 @@ final class AppModel: ObservableObject {
         mainWindow.orderFrontRegardless()
     }
 
-    private func focusMainWindowWhenAvailable() async {
-        for _ in 0..<60 {
-            if mainWindow != nil {
-                focusMainWindow()
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(20))
-        }
-    }
-
     private func resetTypingTarget() {
         typingTargetAppIdentifier = nil
         typingTargetAppName = nil
+        hasStartedCurrentTypingRun = false
     }
 
     private func focusStateForCurrentRun() -> TypingFocusState {
+        if isMenuBarPanelOpen && hasStartedCurrentTypingRun {
+            return TypingFocusState(
+                isFocused: false,
+                targetAppName: typingTargetAppName
+            )
+        }
+
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
             return TypingFocusState(
                 isFocused: true,
@@ -288,6 +321,7 @@ final class AppModel: ObservableObject {
         case .countdown(let secondsLeft):
             statusMessage = "\(source) typing starts in \(secondsLeft)s..."
         case .started(let totalCharacters):
+            hasStartedCurrentTypingRun = true
             lastProgressStatusUpdate = .distantPast
             statusMessage = "Typing \(totalCharacters) chars... Stop: Ctrl+Opt+Cmd+."
         case .paused(let targetAppName):
@@ -306,16 +340,19 @@ final class AppModel: ObservableObject {
         case .completed:
             cancelKeyMonitor.stop()
             resetTypingTarget()
+            hasStartedCurrentTypingRun = false
             isTyping = false
             statusMessage = "Typing finished."
         case .stopped:
             cancelKeyMonitor.stop()
             resetTypingTarget()
+            hasStartedCurrentTypingRun = false
             isTyping = false
             statusMessage = "Typing stopped."
         case .failed(let message):
             cancelKeyMonitor.stop()
             resetTypingTarget()
+            hasStartedCurrentTypingRun = false
             isTyping = false
             statusMessage = "Typing failed: \(message)"
         }

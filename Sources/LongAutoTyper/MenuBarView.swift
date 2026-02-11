@@ -3,7 +3,6 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject private var appModel: AppModel
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -22,9 +21,7 @@ struct MenuBarView: View {
                 .foregroundStyle(.secondary)
 
             Button("Open Window") {
-                appModel.openMainWindow {
-                    openWindow(id: "main")
-                }
+                appModel.openMainWindow()
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -58,5 +55,11 @@ struct MenuBarView: View {
         }
         .padding(8)
         .frame(width: 260)
+        .onAppear {
+            appModel.menuBarDidAppear()
+        }
+        .onDisappear {
+            appModel.menuBarDidDisappear()
+        }
     }
 }
