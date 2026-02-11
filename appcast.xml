@@ -1,0 +1,14 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>LongAutoTyper</title>
+        <item>
+            <title>0.1.1</title>
+            <pubDate>Wed, 11 Feb 2026 18:38:55 -0500</pubDate>
+            <sparkle:version>202602111829</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://thelongislander.github.io/LongAutoTyper/LongAutoTyper.zip" length="3464357" type="application/octet-stream" sparkle:edSignature="Pw2ZsTcl4n5/Ly9zV1GM/3S/BZ3Hnkod9mlWH2lKsDSDydYTq0fcRLaNSHPvJTgRT8/Z2oGZZjEaXjJ8WrLeBA=="/>
+        </item>
+    </channel>
+</rss>
