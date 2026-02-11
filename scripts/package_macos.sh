@@ -16,8 +16,13 @@ APP_VERSION="${APP_VERSION:-0.1.0}"
 ARCH_ARGS=()
 
 cleanup() {
-    [[ -n "${STAGING_DIR}" ]] && rm -rf "${STAGING_DIR}"
-    [[ -n "${PKG_ROOT}" ]] && rm -rf "${PKG_ROOT}"
+    if [[ -n "${STAGING_DIR}" ]]; then
+        rm -rf "${STAGING_DIR}"
+    fi
+    if [[ -n "${PKG_ROOT}" ]]; then
+        rm -rf "${PKG_ROOT}"
+    fi
+    return 0
 }
 trap cleanup EXIT
 
