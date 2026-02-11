@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct LongAutoTyperApp: App {
     @StateObject private var appModel = AppModel()
+    @StateObject private var appUpdater = AppUpdater()
 
     init() {
         NSApplication.shared.setActivationPolicy(.accessory)
@@ -14,6 +15,7 @@ struct LongAutoTyperApp: App {
         MenuBarExtra("LongAutoTyper", systemImage: "keyboard") {
             MenuBarView()
                 .environmentObject(appModel)
+                .environmentObject(appUpdater)
         }
         .menuBarExtraStyle(.window)
     }

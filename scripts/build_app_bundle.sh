@@ -11,8 +11,33 @@ APP_BUNDLE="${DIST_DIR}/${APP_NAME}.app"
 CONTENTS_DIR="${APP_BUNDLE}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
+FRAMEWORKS_DIR="${CONTENTS_DIR}/Frameworks"
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
+SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
+SPARKLE_AUTOMATIC_CHECKS="${SPARKLE_AUTOMATIC_CHECKS:-1}"
 
 ARCHES=()
+
+is_truthy() {
+    case "$1" in
+        1|true|TRUE|yes|YES)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+xml_escape() {
+    local value="$1"
+    value="${value//&/&amp;}"
+    value="${value//</&lt;}"
+    value="${value//>/&gt;}"
+    value="${value//\"/&quot;}"
+    value="${value//\'/&apos;}"
+    printf '%s' "${value}"
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -27,6 +52,18 @@ while [[ $# -gt 0 ]]; do
         --arch)
             ARCHES+=("$2")
             shift 2
+            ;;
+        --feed-url)
+            SPARKLE_FEED_URL="$2"
+            shift 2
+            ;;
+        --sparkle-public-key)
+            SPARKLE_PUBLIC_ED_KEY="$2"
+            shift 2
+            ;;
+        --disable-automatic-update-checks)
+            SPARKLE_AUTOMATIC_CHECKS="0"
+            shift
             ;;
         *)
             echo "Unknown argument: $1" >&2
@@ -69,7 +106,7 @@ for ARCH in "${ARCHES[@]}"; do
 done
 
 rm -rf "${APP_BUNDLE}"
-mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
+mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}" "${FRAMEWORKS_DIR}"
 
 if [[ ${#EXECUTABLES[@]} -gt 1 ]]; then
     lipo -create "${EXECUTABLES[@]}" -output "${MACOS_DIR}/${APP_NAME}"
@@ -87,6 +124,49 @@ fi
 SOURCE_ICON="${ROOT_DIR}/Sources/${APP_NAME}/Resources/AppIcon.icns"
 if [[ -f "${SOURCE_ICON}" ]]; then
     cp "${SOURCE_ICON}" "${RESOURCES_DIR}/AppIcon.icns"
+fi
+
+SPARKLE_FRAMEWORK_SOURCE=""
+if [[ -d "${PRIMARY_BIN_DIR}/Sparkle.framework" ]]; then
+    SPARKLE_FRAMEWORK_SOURCE="${PRIMARY_BIN_DIR}/Sparkle.framework"
+else
+    SPARKLE_FRAMEWORK_SOURCE="$(find "${ROOT_DIR}/.build" -type d -name Sparkle.framework -print -quit 2>/dev/null || true)"
+fi
+
+if [[ -n "${SPARKLE_FRAMEWORK_SOURCE}" ]]; then
+    ditto "${SPARKLE_FRAMEWORK_SOURCE}" "${FRAMEWORKS_DIR}/Sparkle.framework"
+    if command -v otool >/dev/null 2>&1 && command -v install_name_tool >/dev/null 2>&1; then
+        if ! otool -l "${MACOS_DIR}/${APP_NAME}" | grep -q "@executable_path/../Frameworks"; then
+            install_name_tool -add_rpath "@executable_path/../Frameworks" "${MACOS_DIR}/${APP_NAME}" >/dev/null 2>&1 || true
+        fi
+    fi
+else
+    echo "Warning: Sparkle.framework not found in .build output; update checks will fail." >&2
+fi
+
+SPARKLE_PLIST_KEYS=""
+if [[ -n "${SPARKLE_FEED_URL}" ]]; then
+    SPARKLE_FEED_URL_ESCAPED="$(xml_escape "${SPARKLE_FEED_URL}")"
+    SPARKLE_PLIST_KEYS="${SPARKLE_PLIST_KEYS}
+    <key>SUFeedURL</key>
+    <string>${SPARKLE_FEED_URL_ESCAPED}</string>"
+else
+    echo "Warning: SPARKLE_FEED_URL is empty. Set it to your hosted appcast.xml URL." >&2
+fi
+
+if [[ -n "${SPARKLE_PUBLIC_ED_KEY}" ]]; then
+    SPARKLE_PUBLIC_ED_KEY_ESCAPED="$(xml_escape "${SPARKLE_PUBLIC_ED_KEY}")"
+    SPARKLE_PLIST_KEYS="${SPARKLE_PLIST_KEYS}
+    <key>SUPublicEDKey</key>
+    <string>${SPARKLE_PUBLIC_ED_KEY_ESCAPED}</string>"
+else
+    echo "Warning: SPARKLE_PUBLIC_ED_KEY is empty. Signed updates will be rejected." >&2
+fi
+
+if is_truthy "${SPARKLE_AUTOMATIC_CHECKS}"; then
+    SPARKLE_PLIST_KEYS="${SPARKLE_PLIST_KEYS}
+    <key>SUEnableAutomaticChecks</key>
+    <true/>"
 fi
 
 cat > "${CONTENTS_DIR}/Info.plist" <<PLIST
@@ -116,6 +196,7 @@ cat > "${CONTENTS_DIR}/Info.plist" <<PLIST
     <true/>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+${SPARKLE_PLIST_KEYS}
 </dict>
 </plist>
 PLIST

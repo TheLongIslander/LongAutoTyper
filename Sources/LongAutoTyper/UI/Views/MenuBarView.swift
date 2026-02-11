@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject private var appModel: AppModel
+    @EnvironmentObject private var appUpdater: AppUpdater
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -22,6 +23,10 @@ struct MenuBarView: View {
 
             Button("Open Window") {
                 appModel.openMainWindow()
+            }
+
+            Button("Check for Updates...") {
+                appUpdater.checkForUpdates()
             }
 
             VStack(alignment: .leading, spacing: 6) {

@@ -14,6 +14,7 @@ A macOS menu bar app that auto-types text with configurable delay and countdown.
 - Pressing `Delete`/`Backspace` while typing can also stop the current run (requires Input Monitoring permission).
 - Menu bar controls to open window, start clipboard typing, stop typing, and quit.
 - Background-friendly behavior via menu bar extra.
+- In-app `Check for Updates...` menu action (Sparkle feed-based updater).
 
 ## Requirements
 
@@ -42,7 +43,7 @@ Output:
 
 - `dist/LongAutoTyper.app`
 
-### 2) Build release artifacts for sharing (`.app` + `.dmg` + `.pkg`)
+### 2) Build release artifacts for sharing (`.app` + `.zip` + `.dmg` + `.pkg`)
 
 Use this when you want files to upload/share with other users.
 
@@ -53,6 +54,7 @@ Use this when you want files to upload/share with other users.
 Outputs:
 
 - `dist/LongAutoTyper.app`
+- `dist/LongAutoTyper.zip`
 - `dist/LongAutoTyper.dmg`
 - `dist/LongAutoTyper.pkg`
 
@@ -70,7 +72,7 @@ After installing the `.pkg`, you should find it in Finder at:
 ### Quick decision
 
 - `build_app_bundle.sh`: app only
-- `package_macos.sh`: app + installer/distribution files
+- `package_macos.sh`: app + zip + installer/distribution files
 
 ### Useful flags (both scripts)
 
@@ -79,8 +81,75 @@ After installing the `.pkg`, you should find it in Finder at:
 
 Extra flags for `package_macos.sh` only:
 
+- `--skip-zip`
 - `--skip-dmg`
 - `--skip-pkg`
+
+Sparkle-related flags (both scripts):
+
+- `--feed-url https://your-domain/appcast.xml`
+- `--sparkle-public-key YOUR_PUBLIC_ED25519_KEY`
+- `--disable-automatic-update-checks`
+
+Equivalent env vars:
+
+- `SPARKLE_FEED_URL`
+- `SPARKLE_PUBLIC_ED_KEY`
+- `SPARKLE_AUTOMATIC_CHECKS=0|1`
+
+## Free In-App Update Pipeline (No Apple $99 Required)
+
+This project now supports Sparkle-based update checks with a hosted appcast feed.
+
+### 1) Generate Sparkle keys once
+
+Install Sparkle tools and run:
+
+```bash
+generate_keys
+```
+
+Save:
+
+- the public key in your build command (`SPARKLE_PUBLIC_ED_KEY` or `--sparkle-public-key`)
+- the private key securely (used by `generate_appcast` for signing releases)
+
+### 2) Build release artifacts with feed metadata
+
+```bash
+SPARKLE_FEED_URL="https://YOUR_USERNAME.github.io/LongAutoTyper/appcast.xml" \
+SPARKLE_PUBLIC_ED_KEY="YOUR_PUBLIC_ED25519_KEY" \
+./scripts/package_macos.sh --version 0.1.0
+```
+
+### 3) Generate appcast
+
+From your release artifacts directory (typically `dist/`), generate a signed appcast:
+
+```bash
+generate_appcast dist/
+```
+
+That produces an `appcast.xml` describing available updates.
+
+### 4) Host artifacts + appcast over HTTPS
+
+Host at least:
+
+- `LongAutoTyper.zip` (or another Sparkle-supported artifact)
+- `appcast.xml`
+
+GitHub Pages is a free option for hosting both.
+
+### 5) User update flow
+
+In the app menu bar panel, use `Check for Updates...`.
+If a newer version exists in the appcast, Sparkle prompts and installs it.
+
+## Security/UX Notes Without Paid Apple Signing
+
+- This setup is free, but Gatekeeper prompts are stricter for unsigned/notarized apps.
+- Sparkle update integrity still relies on your EdDSA signature (`SUPublicEDKey`), so do not share your private key.
 
 ## App Icon
 
