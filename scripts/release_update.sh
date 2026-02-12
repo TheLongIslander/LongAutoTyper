@@ -32,6 +32,9 @@ Optional:
   --feed-url URL                         Passed to package_macos.sh
   --sparkle-public-key KEY               Passed to package_macos.sh
   --disable-automatic-update-checks      Passed to package_macos.sh
+  --codesign-identity NAME               Passed to package_macos.sh
+  --adhoc-sign                           Passed to package_macos.sh
+  --skip-sign                            Passed to package_macos.sh
   --download-url-prefix URL              URL prefix for generated appcast enclosure URLs
   --pages-remote REMOTE                  Git remote for Pages branch (default: origin)
   --pages-branch BRANCH                  GitHub Pages branch (default: gh-pages)
@@ -79,6 +82,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --disable-automatic-update-checks)
             PACKAGE_ARGS+=("--disable-automatic-update-checks")
+            shift
+            ;;
+        --codesign-identity)
+            PACKAGE_ARGS+=("--codesign-identity" "$2")
+            shift 2
+            ;;
+        --adhoc-sign)
+            PACKAGE_ARGS+=("--adhoc-sign")
+            shift
+            ;;
+        --skip-sign)
+            PACKAGE_ARGS+=("--skip-sign")
             shift
             ;;
         --download-url-prefix)

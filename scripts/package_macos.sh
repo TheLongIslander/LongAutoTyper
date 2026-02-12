@@ -17,6 +17,7 @@ CONFIGURATION="${CONFIGURATION:-release}"
 APP_VERSION="${APP_VERSION:-0.1.0}"
 ARCH_ARGS=()
 SPARKLE_ARGS=()
+SIGN_ARGS=()
 
 cleanup() {
     if [[ -n "${STAGING_DIR}" ]]; then
@@ -67,6 +68,18 @@ while [[ $# -gt 0 ]]; do
             SPARKLE_ARGS+=("--disable-automatic-update-checks")
             shift
             ;;
+        --codesign-identity)
+            SIGN_ARGS+=("--codesign-identity" "$2")
+            shift 2
+            ;;
+        --adhoc-sign)
+            SIGN_ARGS+=("--adhoc-sign")
+            shift
+            ;;
+        --skip-sign)
+            SIGN_ARGS+=("--skip-sign")
+            shift
+            ;;
         *)
             echo "Unknown argument: $1" >&2
             exit 1
@@ -88,6 +101,10 @@ fi
 
 if [[ ${#SPARKLE_ARGS[@]} -gt 0 ]]; then
     BUILD_CMD+=("${SPARKLE_ARGS[@]}")
+fi
+
+if [[ ${#SIGN_ARGS[@]} -gt 0 ]]; then
+    BUILD_CMD+=("${SIGN_ARGS[@]}")
 fi
 
 "${BUILD_CMD[@]}"

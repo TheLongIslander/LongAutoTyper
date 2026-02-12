@@ -79,6 +79,9 @@ After installing the `.pkg`, you should find it in Finder at:
 
 - `--configuration debug|release`
 - `--arch x86_64` or `--arch arm64` (repeatable; default builds both for universal)
+- `--codesign-identity "CERT_NAME"` (recommended for stable Accessibility trust across updates)
+- `--adhoc-sign` (local throwaway builds only)
+- `--skip-sign`
 
 Extra flags for `package_macos.sh` only:
 
@@ -97,6 +100,7 @@ Equivalent env vars:
 - `SPARKLE_FEED_URL`
 - `SPARKLE_PUBLIC_ED_KEY`
 - `SPARKLE_AUTOMATIC_CHECKS=0|1`
+- `CODE_SIGN_IDENTITY`
 
 ## One-Command Update Publish
 
@@ -118,6 +122,7 @@ Useful options:
 - `--pages-remote origin`
 - `--pages-branch gh-pages`
 - `--arch x86_64` / `--arch arm64`
+- `--codesign-identity "CERT_NAME"`
 
 ## Free In-App Update Pipeline (No Apple $99 Required)
 
@@ -136,15 +141,32 @@ Save:
 - the public key in your build command (`SPARKLE_PUBLIC_ED_KEY` or `--sparkle-public-key`)
 - the private key securely (used by `generate_appcast` for signing releases)
 
-### 2) Build release artifacts with feed metadata
+### 2) Create a persistent local code-signing cert (free)
+
+In `Keychain Access`:
+
+1. Open `Certificate Assistant` -> `Create a Certificate...`
+2. Name it (for example `LongAutoTyper Local Signing`)
+3. Set `Identity Type` to `Self Signed Root`
+4. Set `Certificate Type` to `Code Signing`
+5. Save it in your login keychain
+
+Then confirm the identity string:
+
+```bash
+security find-identity -v -p codesigning
+```
+
+### 3) Build release artifacts with feed metadata and stable signing
 
 ```bash
 SPARKLE_FEED_URL="https://YOUR_USERNAME.github.io/LongAutoTyper/appcast.xml" \
 SPARKLE_PUBLIC_ED_KEY="YOUR_PUBLIC_ED25519_KEY" \
+CODE_SIGN_IDENTITY="LongAutoTyper Local Signing" \
 ./scripts/package_macos.sh --version 0.1.0
 ```
 
-### 3) Generate appcast
+### 4) Generate appcast
 
 From your release artifacts directory (typically `dist/`), generate a signed appcast:
 
@@ -154,7 +176,7 @@ generate_appcast dist/
 
 That produces an `appcast.xml` describing available updates.
 
-### 4) Host artifacts + appcast over HTTPS
+### 5) Host artifacts + appcast over HTTPS
 
 Host at least:
 
@@ -163,7 +185,7 @@ Host at least:
 
 GitHub Pages is a free option for hosting both.
 
-### 5) User update flow
+### 6) User update flow
 
 In the app menu bar panel, use `Check for Updates...`.
 If a newer version exists in the appcast, Sparkle prompts and installs it.
@@ -172,6 +194,7 @@ If a newer version exists in the appcast, Sparkle prompts and installs it.
 
 - This setup is free, but Gatekeeper prompts are stricter for unsigned/notarized apps.
 - Sparkle update integrity still relies on your EdDSA signature (`SUPublicEDKey`), so do not share your private key.
+- Do not use ad-hoc signing for releases if you want Accessibility trust to persist across reinstalls/updates.
 
 ## App Icon
 

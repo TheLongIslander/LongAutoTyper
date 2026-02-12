@@ -15,6 +15,9 @@ FRAMEWORKS_DIR="${CONTENTS_DIR}/Frameworks"
 SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
 SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
 SPARKLE_AUTOMATIC_CHECKS="${SPARKLE_AUTOMATIC_CHECKS:-1}"
+CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
+ADHOC_SIGN="${ADHOC_SIGN:-0}"
+SKIP_SIGN="${SKIP_SIGN:-0}"
 
 ARCHES=()
 
@@ -63,6 +66,23 @@ while [[ $# -gt 0 ]]; do
             ;;
         --disable-automatic-update-checks)
             SPARKLE_AUTOMATIC_CHECKS="0"
+            shift
+            ;;
+        --codesign-identity)
+            CODE_SIGN_IDENTITY="$2"
+            ADHOC_SIGN="0"
+            SKIP_SIGN="0"
+            shift 2
+            ;;
+        --adhoc-sign)
+            ADHOC_SIGN="1"
+            SKIP_SIGN="0"
+            shift
+            ;;
+        --skip-sign)
+            SKIP_SIGN="1"
+            ADHOC_SIGN="0"
+            CODE_SIGN_IDENTITY=""
             shift
             ;;
         *)
@@ -201,9 +221,28 @@ ${SPARKLE_PLIST_KEYS}
 </plist>
 PLIST
 
-# Ad-hoc sign so the bundle can be launched more smoothly in local testing.
 if command -v codesign >/dev/null 2>&1; then
-    codesign --force --deep --sign - "${APP_BUNDLE}" >/dev/null 2>&1 || true
+    if is_truthy "${SKIP_SIGN}"; then
+        echo "Skipping code signing (--skip-sign)."
+    elif [[ -n "${CODE_SIGN_IDENTITY}" ]]; then
+        if ! codesign --force --deep --timestamp=none --sign "${CODE_SIGN_IDENTITY}" "${APP_BUNDLE}"; then
+            echo "Code signing failed for identity: ${CODE_SIGN_IDENTITY}" >&2
+            exit 1
+        fi
+        echo "Signed app bundle with identity: ${CODE_SIGN_IDENTITY}"
+    elif is_truthy "${ADHOC_SIGN}"; then
+        if ! codesign --force --deep --sign - "${APP_BUNDLE}"; then
+            echo "Ad-hoc code signing failed." >&2
+            exit 1
+        fi
+        echo "Ad-hoc signed app bundle (not stable for Accessibility permission across reinstalls)."
+    else
+        echo "Warning: app bundle is unsigned." >&2
+        echo "Set CODE_SIGN_IDENTITY or pass --codesign-identity for stable Accessibility trust across updates." >&2
+        echo "Use --adhoc-sign only for local throwaway builds." >&2
+    fi
+else
+    echo "Warning: codesign not found; app bundle is unsigned." >&2
 fi
 
 echo "Built app bundle: ${APP_BUNDLE}"

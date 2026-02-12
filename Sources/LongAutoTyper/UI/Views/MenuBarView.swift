@@ -25,10 +25,6 @@ struct MenuBarView: View {
                 appModel.openMainWindow()
             }
 
-            Button("Check for Updates...") {
-                appUpdater.checkForUpdates()
-            }
-
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Delay")
@@ -53,6 +49,10 @@ struct MenuBarView: View {
                 .lineLimit(2)
 
             Divider()
+
+            Button("Check for Updates...") {
+                appUpdater.checkForUpdates()
+            }
 
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
