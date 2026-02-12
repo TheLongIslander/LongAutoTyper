@@ -5,6 +5,7 @@
 /.swiftpm/
 /.vscode/
 /.idea/
+/.release-pages
 *.log
 xcuserdata/
 DerivedData/

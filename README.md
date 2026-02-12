@@ -73,6 +73,7 @@ After installing the `.pkg`, you should find it in Finder at:
 
 - `build_app_bundle.sh`: app only
 - `package_macos.sh`: app + zip + installer/distribution files
+- `release_update.sh`: one command to build + generate appcast + publish to GitHub Pages
 
 ### Useful flags (both scripts)
 
@@ -96,6 +97,27 @@ Equivalent env vars:
 - `SPARKLE_FEED_URL`
 - `SPARKLE_PUBLIC_ED_KEY`
 - `SPARKLE_AUTOMATIC_CHECKS=0|1`
+
+## One-Command Update Publish
+
+After setting your Sparkle env vars once (eg in `~/.zshrc`), run:
+
+```bash
+./scripts/release_update.sh --version 0.1.2
+```
+
+This script will:
+
+- run `package_macos.sh` (app + zip + dmg + pkg artifacts)
+- generate a signed `appcast.xml` from the release zip
+- publish `LongAutoTyper.zip` and `appcast.xml` to `gh-pages`
+
+Useful options:
+
+- `--download-url-prefix https://thelongislander.github.io/LongAutoTyper/`
+- `--pages-remote origin`
+- `--pages-branch gh-pages`
+- `--arch x86_64` / `--arch arm64`
 
 ## Free In-App Update Pipeline (No Apple $99 Required)
 
