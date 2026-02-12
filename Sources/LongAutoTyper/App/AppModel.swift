@@ -39,6 +39,7 @@ final class AppModel: ObservableObject {
     private var typingTargetAppName: String?
     private var isMenuBarPanelOpen = false
     private var hasStartedCurrentTypingRun = false
+    private var activeTypingRunID = UUID()
 
     private enum Keys {
         static let manualText = "manualText"
@@ -152,6 +153,7 @@ final class AppModel: ObservableObject {
     }
 
     func stopTyping() {
+        activeTypingRunID = UUID()
         Task {
             await typingEngine.stop()
         }
@@ -163,6 +165,7 @@ final class AppModel: ObservableObject {
     }
 
     private func emergencyStop(reason: String) {
+        activeTypingRunID = UUID()
         Task {
             await typingEngine.stop()
         }
@@ -224,6 +227,8 @@ final class AppModel: ObservableObject {
     private func startTyping(text: String, source: String, countdown: Int, initialDelay: Double) {
         resetTypingTarget()
         hasStartedCurrentTypingRun = false
+        let runID = UUID()
+        activeTypingRunID = runID
         isTyping = true
         let inputMonitoringGranted = permissionManager.requestInputMonitoringIfNeeded()
         let cancelMonitorReady = inputMonitoringGranted && cancelKeyMonitor.start()
@@ -245,7 +250,7 @@ final class AppModel: ObservableObject {
                     self?.focusStateForCurrentRun() ?? TypingFocusState(isFocused: true, targetAppName: nil)
                 }
             ) { [weak self] update in
-                self?.handleTypingUpdate(update, source: source)
+                self?.handleTypingUpdate(update, source: source, runID: runID)
             }
         }
     }
@@ -316,21 +321,30 @@ final class AppModel: ObservableObject {
         )
     }
 
-    private func handleTypingUpdate(_ update: TypingUpdate, source: String) {
+    private func handleTypingUpdate(_ update: TypingUpdate, source: String, runID: UUID) {
+        guard runID == activeTypingRunID else {
+            return
+        }
+
         switch update {
         case .countdown(let secondsLeft):
+            isTyping = true
             statusMessage = "\(source) typing starts in \(secondsLeft)s..."
         case .started(let totalCharacters):
+            isTyping = true
             hasStartedCurrentTypingRun = true
             lastProgressStatusUpdate = .distantPast
             statusMessage = "Typing \(totalCharacters) chars... Stop: Ctrl+Opt+Cmd+."
         case .paused(let targetAppName):
+            isTyping = true
             let targetName = targetAppName ?? "target app"
             statusMessage = "Paused (focus changed). Return to \(targetName) to resume."
         case .resumed(let targetAppName):
+            isTyping = true
             let targetName = targetAppName ?? "target app"
             statusMessage = "Resumed in \(targetName). Stop: Ctrl+Opt+Cmd+."
         case .progress(let typed, let total):
+            isTyping = true
             let now = Date()
             if now.timeIntervalSince(lastProgressStatusUpdate) < 0.12 && typed < total {
                 return
@@ -338,18 +352,21 @@ final class AppModel: ObservableObject {
             lastProgressStatusUpdate = now
             statusMessage = "Typing \(typed)/\(total) (Stop: Ctrl+Opt+Cmd+.)"
         case .completed:
+            activeTypingRunID = UUID()
             cancelKeyMonitor.stop()
             resetTypingTarget()
             hasStartedCurrentTypingRun = false
             isTyping = false
             statusMessage = "Typing finished."
         case .stopped:
+            activeTypingRunID = UUID()
             cancelKeyMonitor.stop()
             resetTypingTarget()
             hasStartedCurrentTypingRun = false
             isTyping = false
             statusMessage = "Typing stopped."
         case .failed(let message):
+            activeTypingRunID = UUID()
             cancelKeyMonitor.stop()
             resetTypingTarget()
             hasStartedCurrentTypingRun = false

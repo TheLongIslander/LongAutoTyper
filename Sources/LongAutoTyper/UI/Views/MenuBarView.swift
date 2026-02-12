@@ -40,6 +40,7 @@ struct MenuBarView: View {
             Button("Stop Typing") {
                 appModel.stopTyping()
             }
+            .disabled(!appModel.isTyping)
 
             Divider()
 
