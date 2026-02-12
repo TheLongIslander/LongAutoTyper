@@ -3,12 +3,12 @@
     <channel>
         <title>LongAutoTyper</title>
         <item>
-            <title>0.1.3</title>
-            <pubDate>Wed, 11 Feb 2026 19:02:06 -0500</pubDate>
-            <sparkle:version>202602111901</sparkle:version>
-            <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
+            <title>0.1.4</title>
+            <pubDate>Wed, 11 Feb 2026 20:21:47 -0500</pubDate>
+            <sparkle:version>202602112021</sparkle:version>
+            <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://thelongislander.github.io/LongAutoTyper/LongAutoTyper.zip" length="3464351" type="application/octet-stream" sparkle:edSignature="hBVlzF5WFVV8EafQx/MTL/3ygFAhWXYl+7uu0+E88FpbIiim7Ixw5UcGdyJ1RWjGpLhgKTyf3lg8d/P3c82pAQ=="/>
+            <enclosure url="https://thelongislander.github.io/LongAutoTyper/LongAutoTyper.zip" length="3472826" type="application/octet-stream" sparkle:edSignature="d0LawfvKtQDoYFT7iUrTVWWygiiAINHy7pnRc2oI93sdqeo4ofphJoiMWB+WfQbu2xZ4rb6gNW/l8Q+myMjgDQ=="/>
         </item>
     </channel>
 </rss>
