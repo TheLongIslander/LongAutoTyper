@@ -107,7 +107,7 @@ Equivalent env vars:
 After setting your Sparkle env vars once (eg in `~/.zshrc`), run:
 
 ```bash
-./scripts/release_update.sh --version 0.1.2
+./scripts/release_update.sh --version 0.1.2 --codesign-identity "LongAutoTyper Local Signing"
 ```
 
 This script will:
